@@ -1,0 +1,57 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "port": 18789,
+    "auth": {
+      "mode": "token"
+    },
+    "tailscale": {
+      "mode": "off"
+    }
+  },
+  "agent": {
+    "model": "anthropic/claude-sonnet-4"
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "/workspace"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "trajectory-sandbox-tools": {
+        "enabled": true,
+        "config": {
+          "mockServerUrl": "http://host.docker.internal:3001",
+          "scenario": "inbox_triage"
+        }
+      }
+    }
+  },
+  "tools": {
+    "deny": [
+      "exec",
+      "process",
+      "browser",
+      "canvas",
+      "nodes",
+      "cron",
+      "gateway",
+      "web_search",
+      "web_fetch",
+      "apply_patch"
+    ],
+    "allow": [
+      "inbox_list",
+      "email_draft",
+      "email_send",
+      "calendar_read",
+      "memory_read",
+      "memory_write",
+      "read",
+      "session_status"
+    ]
+  },
+  "channels": {}
+}
