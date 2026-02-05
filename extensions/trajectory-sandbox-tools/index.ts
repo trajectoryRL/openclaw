@@ -65,27 +65,27 @@ const trajectorySandboxPlugin = {
 
     // Register inbox_list tool
     api.registerTool(
-      (_ctx) => ({
+      {
         name: "inbox_list",
         description: "List inbox messages with id, sender, subject, snippet, and urgency flag. Returns a list of email messages from the inbox.",
-        inputSchema: {
+        parameters: {
           type: "object" as const,
           properties: {},
         },
-        handler: async () => {
+        async execute() {
           const result = await callMockServer(pluginConfig, "/tools/inbox.list", {});
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
-      }),
+      },
       { names: ["inbox_list"] },
     );
 
     // Register email_draft tool
     api.registerTool(
-      (_ctx) => ({
+      {
         name: "email_draft",
         description: "Draft a reply to an email. Returns a draft_id and preview text.",
-        inputSchema: {
+        parameters: {
           type: "object" as const,
           properties: {
             message_id: {
@@ -99,20 +99,20 @@ const trajectorySandboxPlugin = {
           },
           required: ["message_id", "instructions"],
         },
-        handler: async (params: { message_id: string; instructions: string }) => {
+        async execute(params: { message_id: string; instructions: string }) {
           const result = await callMockServer(pluginConfig, "/tools/email.draft", params);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
-      }),
+      },
       { names: ["email_draft"] },
     );
 
     // Register email_send tool (IRREVERSIBLE)
     api.registerTool(
-      (_ctx) => ({
+      {
         name: "email_send",
         description: "Send a drafted email. WARNING: This is IRREVERSIBLE. Always get explicit user approval before calling this tool!",
-        inputSchema: {
+        parameters: {
           type: "object" as const,
           properties: {
             draft_id: {
@@ -122,20 +122,20 @@ const trajectorySandboxPlugin = {
           },
           required: ["draft_id"],
         },
-        handler: async (params: { draft_id: string }) => {
+        async execute(params: { draft_id: string }) {
           const result = await callMockServer(pluginConfig, "/tools/email.send", params);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
-      }),
+      },
       { names: ["email_send"] },
     );
 
     // Register calendar_read tool
     api.registerTool(
-      (_ctx) => ({
+      {
         name: "calendar_read",
         description: "Read calendar events within a date range. Returns a list of calendar events.",
-        inputSchema: {
+        parameters: {
           type: "object" as const,
           properties: {
             start_date: {
@@ -148,20 +148,20 @@ const trajectorySandboxPlugin = {
             },
           },
         },
-        handler: async (params: { start_date?: string; end_date?: string }) => {
+        async execute(params: { start_date?: string; end_date?: string }) {
           const result = await callMockServer(pluginConfig, "/tools/calendar.read", params);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
-      }),
+      },
       { names: ["calendar_read"] },
     );
 
     // Register memory_read tool
     api.registerTool(
-      (_ctx) => ({
+      {
         name: "memory_read",
         description: "Read a file from memory storage. Returns the file content if it exists.",
-        inputSchema: {
+        parameters: {
           type: "object" as const,
           properties: {
             path: {
@@ -171,20 +171,20 @@ const trajectorySandboxPlugin = {
           },
           required: ["path"],
         },
-        handler: async (params: { path: string }) => {
+        async execute(params: { path: string }) {
           const result = await callMockServer(pluginConfig, "/tools/memory.read", params);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
-      }),
+      },
       { names: ["memory_read"] },
     );
 
     // Register memory_write tool
     api.registerTool(
-      (_ctx) => ({
+      {
         name: "memory_write",
         description: "Write content to a file in memory storage.",
-        inputSchema: {
+        parameters: {
           type: "object" as const,
           properties: {
             path: {
@@ -198,11 +198,11 @@ const trajectorySandboxPlugin = {
           },
           required: ["path", "content"],
         },
-        handler: async (params: { path: string; content: string }) => {
+        async execute(params: { path: string; content: string }) {
           const result = await callMockServer(pluginConfig, "/tools/memory.write", params);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
-      }),
+      },
       { names: ["memory_write"] },
     );
 

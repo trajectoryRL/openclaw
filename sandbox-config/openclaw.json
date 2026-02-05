@@ -31,7 +31,7 @@
       "trajectory-sandbox-tools": {
         "enabled": true,
         "config": {
-          "mockServerUrl": "http://host.docker.internal:3001",
+          "mockServerUrl": "http://mock-tools:3001",
           "scenario": "inbox_triage"
         }
       }
