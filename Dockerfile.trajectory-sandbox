@@ -1,0 +1,61 @@
+# Dockerfile.trajectory-sandbox
+# Pre-configured OpenClaw for Trajectory Sandbox evaluation
+#
+# Includes:
+# - trajectory-sandbox-tools plugin
+# - Pre-configured openclaw.json (skips onboarding)
+# - Only mock tools enabled (real tools disabled)
+
+FROM node:22-bookworm
+
+# Install Bun (required for build scripts)
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:${PATH}"
+
+RUN corepack enable
+
+WORKDIR /app
+
+# Install curl for healthchecks
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY ui/package.json ./ui/package.json
+COPY patches ./patches
+COPY scripts ./scripts
+
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+RUN OPENCLAW_A2UI_SKIP_MISSING=1 pnpm build
+ENV OPENCLAW_PREFER_PNPM=1
+RUN pnpm ui:build
+
+ENV NODE_ENV=production
+
+# Create openclaw config directory and workspace
+RUN mkdir -p /home/node/.openclaw && \
+    mkdir -p /workspace && \
+    chown -R node:node /home/node/.openclaw && \
+    chown -R node:node /workspace
+
+# Copy sandbox configuration (skips onboarding)
+COPY --chown=node:node sandbox-config/openclaw.json /home/node/.openclaw/openclaw.json
+
+# Allow non-root user to write temp files
+RUN chown -R node:node /app
+
+# Run as non-root user
+USER node
+
+# Set home directory for the node user
+ENV HOME=/home/node
+
+# Expose gateway port
+EXPOSE 18789
+
+# Start gateway with LAN binding and skip onboarding checks
+CMD ["node", "dist/index.js", "gateway", "--allow-unconfigured", "--bind", "lan"]
