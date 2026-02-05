@@ -4,10 +4,18 @@
     "bind": "lan",
     "port": 18789,
     "auth": {
-      "mode": "token"
+      "mode": "token",
+      "token": "sandbox-token-12345"
     },
     "tailscale": {
       "mode": "off"
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
     }
   },
   "agents": {
