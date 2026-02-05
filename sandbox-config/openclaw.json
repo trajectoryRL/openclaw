@@ -10,12 +10,12 @@
       "mode": "off"
     }
   },
-  "agent": {
-    "model": "anthropic/claude-sonnet-4"
-  },
   "agents": {
     "defaults": {
-      "workspace": "/workspace"
+      "workspace": "/workspace",
+      "model": {
+        "primary": "anthropic/claude-sonnet-4-5-20250929"
+      }
     }
   },
   "plugins": {
