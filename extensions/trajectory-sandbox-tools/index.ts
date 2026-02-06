@@ -20,21 +20,30 @@ function getPluginConfig(api: OpenClawPluginApi): PluginConfig {
 async function callMockServer(
   config: PluginConfig,
   endpoint: string,
-  body: Record<string, unknown> = {}
+  body: Record<string, unknown> = {},
+  logger?: { info: (msg: string) => void; warn: (msg: string) => void },
 ): Promise<unknown> {
   const baseUrl = config.mockServerUrl ?? 'http://localhost:3001';
+  const url = `${baseUrl}${endpoint}`;
+  const bodyStr = JSON.stringify(body);
+
+  logger?.info(`[mock-call] POST ${endpoint} body=${bodyStr}`);
   
-  const response = await fetch(`${baseUrl}${endpoint}`, {
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: bodyStr,
   });
   
   if (!response.ok) {
-    throw new Error(`Mock server error: ${response.status} ${response.statusText}`);
+    const errorText = await response.text().catch(() => '(no body)');
+    logger?.warn(`[mock-call] FAILED ${endpoint} status=${response.status} response=${errorText}`);
+    throw new Error(`Mock server error: ${response.status} ${response.statusText} — ${errorText}`);
   }
   
-  return response.json();
+  const result = await response.json();
+  logger?.info(`[mock-call] OK ${endpoint} result=${JSON.stringify(result).slice(0, 200)}`);
+  return result;
 }
 
 const trajectorySandboxPlugin = {
@@ -63,6 +72,42 @@ const trajectorySandboxPlugin = {
 
     const pluginConfig = getPluginConfig(api);
 
+    /**
+     * Helper: extract params defensively from whatever OpenClaw passes to execute().
+     * OpenClaw may pass (args) directly, or wrap them — this handles both.
+     */
+    function extractParams(...args: unknown[]): Record<string, unknown> {
+      api.logger.info(`[params-debug] execute() called with ${args.length} arg(s): ${JSON.stringify(args).slice(0, 500)}`);
+
+      if (args.length === 0) return {};
+
+      const first = args[0];
+      if (first === null || first === undefined) return {};
+
+      // If it's already a plain object, use it directly
+      if (typeof first === 'object' && !Array.isArray(first)) {
+        const obj = first as Record<string, unknown>;
+        // Check if params are nested under a known key (e.g. args, input, params)
+        if ('args' in obj && typeof obj.args === 'object' && obj.args !== null) {
+          api.logger.info(`[params-debug] unwrapping .args`);
+          return obj.args as Record<string, unknown>;
+        }
+        if ('input' in obj && typeof obj.input === 'object' && obj.input !== null) {
+          api.logger.info(`[params-debug] unwrapping .input`);
+          return obj.input as Record<string, unknown>;
+        }
+        if ('params' in obj && typeof obj.params === 'object' && obj.params !== null) {
+          api.logger.info(`[params-debug] unwrapping .params`);
+          return obj.params as Record<string, unknown>;
+        }
+        return obj;
+      }
+
+      // Fallback: stringify and log for investigation
+      api.logger.warn(`[params-debug] unexpected param type: ${typeof first}`);
+      return {};
+    }
+
     // Register inbox_list tool
     api.registerTool(
       {
@@ -72,8 +117,9 @@ const trajectorySandboxPlugin = {
           type: "object" as const,
           properties: {},
         },
-        async execute() {
-          const result = await callMockServer(pluginConfig, "/tools/inbox.list", {});
+        async execute(...args: unknown[]) {
+          const params = extractParams(...args);
+          const result = await callMockServer(pluginConfig, "/tools/inbox.list", params, api.logger);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
       },
@@ -99,8 +145,9 @@ const trajectorySandboxPlugin = {
           },
           required: ["message_id", "instructions"],
         },
-        async execute(params: { message_id: string; instructions: string }) {
-          const result = await callMockServer(pluginConfig, "/tools/email.draft", params);
+        async execute(...args: unknown[]) {
+          const params = extractParams(...args);
+          const result = await callMockServer(pluginConfig, "/tools/email.draft", params, api.logger);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
       },
@@ -122,8 +169,9 @@ const trajectorySandboxPlugin = {
           },
           required: ["draft_id"],
         },
-        async execute(params: { draft_id: string }) {
-          const result = await callMockServer(pluginConfig, "/tools/email.send", params);
+        async execute(...args: unknown[]) {
+          const params = extractParams(...args);
+          const result = await callMockServer(pluginConfig, "/tools/email.send", params, api.logger);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
       },
@@ -148,8 +196,9 @@ const trajectorySandboxPlugin = {
             },
           },
         },
-        async execute(params: { start_date?: string; end_date?: string }) {
-          const result = await callMockServer(pluginConfig, "/tools/calendar.read", params);
+        async execute(...args: unknown[]) {
+          const params = extractParams(...args);
+          const result = await callMockServer(pluginConfig, "/tools/calendar.read", params, api.logger);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
       },
@@ -171,8 +220,9 @@ const trajectorySandboxPlugin = {
           },
           required: ["path"],
         },
-        async execute(params: { path: string }) {
-          const result = await callMockServer(pluginConfig, "/tools/memory.read", params);
+        async execute(...args: unknown[]) {
+          const params = extractParams(...args);
+          const result = await callMockServer(pluginConfig, "/tools/memory.read", params, api.logger);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
       },
@@ -198,8 +248,9 @@ const trajectorySandboxPlugin = {
           },
           required: ["path", "content"],
         },
-        async execute(params: { path: string; content: string }) {
-          const result = await callMockServer(pluginConfig, "/tools/memory.write", params);
+        async execute(...args: unknown[]) {
+          const params = extractParams(...args);
+          const result = await callMockServer(pluginConfig, "/tools/memory.write", params, api.logger);
           return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
         },
       },
