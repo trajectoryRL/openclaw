@@ -2,24 +2,26 @@
 
 Fork of [OpenClaw](https://github.com/openclaw/openclaw) configured as a **mock evaluation environment** for the [TrajectoryRL](https://trajrl.com) project.
 
-This fork is **not intended for general use**. It provides a sandboxed OpenClaw instance with mocked tools for reproducible A/B testing of `AGENTS.md` policies.
+This fork is **not intended for general use**. It provides a sandboxed OpenClaw instance with a comprehensive mock tool library for reproducible A/B testing of `AGENTS.md` policies.
 
 ## Changes from upstream
 
 ### 1. `extensions/trajectory-sandbox-tools/`
 
-An OpenClaw plugin that registers 6 mock tools:
+An OpenClaw plugin that registers **25 mock tools** across 8 categories:
 
-| Tool | Description |
-|------|-------------|
-| `inbox_list` | List inbox messages from fixtures |
-| `email_draft` | Draft a reply (deterministic) |
-| `email_send` | Send a draft (logged, no real send) |
-| `calendar_read` | Read calendar events from fixtures |
-| `memory_read` | Read from mock memory store |
-| `memory_write` | Write to mock memory store (logged only) |
+| Category | Tools | Count |
+|----------|-------|-------|
+| **Email & Inbox** | `inbox_list`, `email_read`, `email_draft`, `email_send`, `email_archive` | 5 |
+| **Calendar** | `calendar_read`, `calendar_create`, `calendar_update`, `calendar_delete` | 4 |
+| **Messaging (Slack)** | `slack_list_channels`, `slack_read_messages`, `slack_post_message`, `slack_send_dm` | 4 |
+| **Tasks (Jira/Linear)** | `task_list`, `task_get`, `task_create`, `task_update` | 4 |
+| **Documents (Drive/Notion)** | `doc_list`, `doc_read`, `doc_create` | 3 |
+| **Contacts** | `contacts_list`, `contacts_get` | 2 |
+| **Memory / Notes** | `memory_read`, `memory_write` | 2 |
+| **Web Search** | `search_web` | 1 |
 
-Each tool proxies HTTP requests to an external mock server that returns deterministic fixture data.
+Each tool proxies HTTP requests to an external mock server that returns deterministic fixture data. The plugin always registers **all** tools — scenarios control which subset is active via the `tools.allow` config.
 
 ### 2. `sandbox-config/openclaw.json`
 
@@ -27,8 +29,10 @@ Pre-configured settings that skip onboarding and lock down the tool environment:
 
 - Gateway: LAN bind, token auth, OpenAI-compatible HTTP API enabled
 - Tools: all built-in tools denied (`exec`, `browser`, `web_search`, etc.)
-- Only mock tools + `read` + `session_status` allowed
+- All 25 mock tools + `read` + `session_status` allowed (base config)
 - Plugin enabled and pointed at the mock server
+
+**Note:** In practice, the trajectory-sandbox harness generates a scenario-specific `openclaw.json` at runtime that only allows the tools needed for that scenario. The base config here is a fallback that allows everything.
 
 ### 3. `Dockerfile.trajectory-sandbox`
 
