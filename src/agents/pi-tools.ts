@@ -314,8 +314,7 @@ export function createOpenClawCodingTools(options?: {
           cwd: sandboxRoot ?? workspaceRoot,
           sandboxRoot: sandboxRoot && allowWorkspaceWrites ? sandboxRoot : undefined,
         });
-  // Collect non-OpenClaw tools first so plugin conflict detection sees them.
-  const priorTools: AnyAgentTool[] = [
+  const toolsRaw: AnyAgentTool[] = [
     ...base,
     ...(sandboxRoot
       ? allowWorkspaceWrites
@@ -327,10 +326,6 @@ export function createOpenClawCodingTools(options?: {
     processTool as unknown as AnyAgentTool,
     // Channel docking: include channel-defined agent tools (login, etc.).
     ...listChannelAgentTools({ cfg: options?.config }),
-  ];
-  const priorToolNames = new Set(priorTools.map((t) => t.name));
-  const tools: AnyAgentTool[] = [
-    ...priorTools,
     ...createOpenClawTools({
       sandboxBrowserBridgeUrl: sandbox?.browser?.bridgeUrl,
       allowHostBrowserControl: sandbox ? sandbox.browserAllowHostControl : true,
@@ -366,9 +361,15 @@ export function createOpenClawCodingTools(options?: {
       requireExplicitMessageTarget: options?.requireExplicitMessageTarget,
       disableMessageTool: options?.disableMessageTool,
       requesterAgentIdOverride: agentId,
-      priorToolNames,
     }),
   ];
+  // Deduplicate: when a plugin tool shares a name with a built-in tool,
+  // keep the last occurrence (plugin tools are appended after built-ins).
+  const toolDedup = new Map<string, AnyAgentTool>();
+  for (const tool of toolsRaw) {
+    toolDedup.set(tool.name, tool);
+  }
+  const tools = Array.from(toolDedup.values());
   // Security: treat unknown/undefined as unauthorized (opt-in, not opt-out)
   const senderIsOwner = options?.senderIsOwner === true;
   const toolsByAuthorization = applyOwnerOnlyToolPolicy(tools, senderIsOwner);

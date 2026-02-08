@@ -57,9 +57,6 @@ export function createOpenClawTools(options?: {
   requireExplicitMessageTarget?: boolean;
   /** If true, omit the message tool from the tool list. */
   disableMessageTool?: boolean;
-  /** Additional tool names already registered by the caller (e.g. coding tools, exec).
-   *  Used to prevent plugin tools from conflicting with them. */
-  priorToolNames?: Set<string>;
 }): AnyAgentTool[] {
   const imageTool = options?.agentDir?.trim()
     ? createImageTool({
@@ -165,10 +162,7 @@ export function createOpenClawTools(options?: {
       agentAccountId: options?.agentAccountId,
       sandboxed: options?.sandboxed,
     },
-    existingToolNames: new Set([
-      ...tools.map((tool) => tool.name),
-      ...(options?.priorToolNames ?? []),
-    ]),
+    existingToolNames: new Set(tools.map((tool) => tool.name)),
     toolAllowlist: options?.pluginToolAllowlist,
   });
 
