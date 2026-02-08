@@ -357,7 +357,8 @@ export function createOpenClawCodingTools(options?: {
               : undefined,
           workspaceOnly: applyPatchWorkspaceOnly,
         });
-  const tools: AnyAgentTool[] = [
+  // Collect non-OpenClaw tools first so plugin conflict detection sees them.
+  const priorTools: AnyAgentTool[] = [
     ...base,
     ...(sandboxRoot
       ? allowWorkspaceWrites
@@ -382,6 +383,10 @@ export function createOpenClawCodingTools(options?: {
     processTool as unknown as AnyAgentTool,
     // Channel docking: include channel-defined agent tools (login, etc.).
     ...listChannelAgentTools({ cfg: options?.config }),
+  ];
+  const priorToolNames = new Set(priorTools.map((t) => t.name));
+  const tools: AnyAgentTool[] = [
+    ...priorTools,
     ...createOpenClawTools({
       sandboxBrowserBridgeUrl: sandbox?.browser?.bridgeUrl,
       allowHostBrowserControl: sandbox ? sandbox.browserAllowHostControl : true,
@@ -418,6 +423,7 @@ export function createOpenClawCodingTools(options?: {
       requireExplicitMessageTarget: options?.requireExplicitMessageTarget,
       disableMessageTool: options?.disableMessageTool,
       requesterAgentIdOverride: agentId,
+      priorToolNames,
     }),
   ];
   // Security: treat unknown/undefined as unauthorized (opt-in, not opt-out)
