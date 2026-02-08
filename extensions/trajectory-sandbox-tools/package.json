@@ -1,7 +1,7 @@
 {
   "name": "trajectory-sandbox-tools",
-  "version": "0.2.0",
-  "description": "OpenClaw plugin — 25 mock tools for trajectory sandbox evaluation",
+  "version": "0.3.0",
+  "description": "OpenClaw plugin — mock tools matching real OpenClaw schemas for trajectory sandbox evaluation",
   "openclaw": {
     "extensions": ["./index.ts"]
   },
