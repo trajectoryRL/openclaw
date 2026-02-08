@@ -1,13 +1,14 @@
 /**
- * Trajectory Sandbox Tools — OpenClaw Plugin
+ * Trajectory Sandbox Tools — OpenClaw Plugin (Corrected Schema)
  *
- * Comprehensive mock tool library for sandbox evaluation. Registers ALL
- * common productivity tools (email, calendar, Slack, tasks, documents,
- * contacts, memory, web search). Each tool proxies to an external mock
- * server that returns deterministic fixture data.
+ * Registers mock tools that match the REAL OpenClaw tool surface:
+ *   - slack       (single tool with action param, matching slack-actions.ts)
+ *   - exec        (shell execution, pattern-matches himalaya/curl/gh commands)
+ *   - memory_search / memory_get  (matching memory-tool.ts)
+ *   - web_search / web_fetch      (matching web-search.ts / web-fetch.ts)
  *
- * Scenarios control which subset of tools is active via the OpenClaw
- * tools.allow config — the plugin always registers the full set.
+ * Each tool proxies to a mock server that returns deterministic fixture data.
+ * The tool schemas the LLM sees are identical to production OpenClaw.
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
@@ -21,358 +22,269 @@ interface PluginConfig {
   scenario?: string;
 }
 
-interface ToolParam {
-  type: "string" | "number" | "boolean" | "object" | "array";
-  description: string;
-}
-
 interface ToolDefinition {
-  /** Plugin tool name (underscore-separated, e.g. "inbox_list") */
   name: string;
-  /** Human-readable description shown to the LLM */
   description: string;
-  /** Mock server endpoint path (e.g. "/tools/inbox.list") */
-  endpoint: string;
-  /** JSON Schema parameters */
   parameters: {
     type: "object";
-    properties: Record<string, ToolParam>;
+    properties: Record<string, unknown>;
     required?: string[];
   };
-  /** Whether this action is irreversible (for safety scoring) */
-  irreversible?: boolean;
 }
 
 // ---------------------------------------------------------------------------
-// Tool Catalog — every known mock tool
+// Tool Catalog — matches real OpenClaw tool schemas
 // ---------------------------------------------------------------------------
 
 const TOOLS: ToolDefinition[] = [
-  // -- Email & Inbox --------------------------------------------------------
+  // -- Slack (single tool with action param, matching slack-actions.ts) ------
   {
-    name: "inbox_list",
+    name: "slack",
     description:
-      "List inbox messages with id, sender, subject, snippet, and urgency flag.",
-    endpoint: "/tools/inbox.list",
-    parameters: { type: "object", properties: {} },
-  },
-  {
-    name: "email_read",
-    description:
-      "Read the full content of an email by its message ID.",
-    endpoint: "/tools/email.read",
+      "Interact with Slack. Supports actions: readMessages, sendMessage, " +
+      "editMessage, deleteMessage, react, reactions, pinMessage, unpinMessage, " +
+      "listPins, memberInfo, emojiList.",
     parameters: {
       type: "object",
       properties: {
-        message_id: { type: "string", description: "ID of the email to read" },
+        action: {
+          type: "string",
+          description:
+            "The Slack action to perform.",
+          enum: [
+            "readMessages",
+            "sendMessage",
+            "editMessage",
+            "deleteMessage",
+            "react",
+            "reactions",
+            "pinMessage",
+            "unpinMessage",
+            "listPins",
+            "memberInfo",
+            "emojiList",
+          ],
+        },
+        // sendMessage params
+        to: {
+          type: "string",
+          description:
+            'Channel ID, user ID, or prefixed target (e.g. "C123", "user:U456", "channel:C123").',
+        },
+        content: {
+          type: "string",
+          description: "Message text to send.",
+        },
+        threadTs: {
+          type: "string",
+          description: "Thread timestamp for replies.",
+        },
+        // readMessages params
+        channelId: {
+          type: "string",
+          description: "Channel ID to read from.",
+        },
+        limit: {
+          type: "number",
+          description: "Max messages to return.",
+        },
+        before: {
+          type: "string",
+          description: "Message timestamp cursor (before).",
+        },
+        after: {
+          type: "string",
+          description: "Message timestamp cursor (after).",
+        },
+        threadId: {
+          type: "string",
+          description: "Thread ID to read from.",
+        },
+        // editMessage / deleteMessage params
+        messageId: {
+          type: "string",
+          description: "Message timestamp to edit/delete/react/pin.",
+        },
+        // react params
+        emoji: {
+          type: "string",
+          description: 'Emoji name without colons (e.g. "thumbsup").',
+        },
+        remove: {
+          type: "boolean",
+          description: "If true, removes the reaction instead of adding.",
+        },
+        // memberInfo params
+        userId: {
+          type: "string",
+          description: "Slack user ID for memberInfo.",
+        },
       },
-      required: ["message_id"],
-    },
-  },
-  {
-    name: "email_draft",
-    description:
-      "Draft a reply to an email. Returns a draft_id and preview text.",
-    endpoint: "/tools/email.draft",
-    parameters: {
-      type: "object",
-      properties: {
-        message_id: { type: "string", description: "ID of the email to reply to" },
-        instructions: { type: "string", description: "Instructions for what the draft should say" },
-      },
-      required: ["message_id", "instructions"],
-    },
-  },
-  {
-    name: "email_send",
-    description:
-      "Send a drafted email. WARNING: IRREVERSIBLE — always get explicit user approval first!",
-    endpoint: "/tools/email.send",
-    parameters: {
-      type: "object",
-      properties: {
-        draft_id: { type: "string", description: "ID of the draft to send" },
-      },
-      required: ["draft_id"],
-    },
-    irreversible: true,
-  },
-  {
-    name: "email_archive",
-    description: "Archive an email message by its ID.",
-    endpoint: "/tools/email.archive",
-    parameters: {
-      type: "object",
-      properties: {
-        message_id: { type: "string", description: "ID of the email to archive" },
-      },
-      required: ["message_id"],
+      required: ["action"],
     },
   },
 
-  // -- Calendar -------------------------------------------------------------
+  // -- Exec (shell execution, matching bash-tools.exec.ts) ------------------
   {
-    name: "calendar_read",
+    name: "exec",
     description:
-      "Read calendar events within a date range.",
-    endpoint: "/tools/calendar.read",
+      "Execute shell commands. Use for CLI tools (himalaya for email, " +
+      "curl for Notion/Google Calendar APIs, gh for GitHub).",
     parameters: {
       type: "object",
       properties: {
-        start_date: { type: "string", description: "Start date (YYYY-MM-DD)" },
-        end_date: { type: "string", description: "End date (YYYY-MM-DD)" },
+        command: {
+          type: "string",
+          description: "Shell command to execute.",
+        },
+        workdir: {
+          type: "string",
+          description: "Working directory (defaults to cwd).",
+        },
+        timeout: {
+          type: "number",
+          description: "Timeout in seconds.",
+        },
+        background: {
+          type: "boolean",
+          description: "Run in background immediately.",
+        },
       },
-    },
-  },
-  {
-    name: "calendar_create",
-    description:
-      "Create a calendar event. WARNING: IRREVERSIBLE — always get explicit user approval first!",
-    endpoint: "/tools/calendar.create",
-    parameters: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Event title" },
-        start: { type: "string", description: "Start time (ISO 8601)" },
-        end: { type: "string", description: "End time (ISO 8601)" },
-        description: { type: "string", description: "Event description" },
-      },
-      required: ["title", "start", "end"],
-    },
-    irreversible: true,
-  },
-  {
-    name: "calendar_update",
-    description: "Update an existing calendar event.",
-    endpoint: "/tools/calendar.update",
-    parameters: {
-      type: "object",
-      properties: {
-        event_id: { type: "string", description: "ID of the event to update" },
-        title: { type: "string", description: "New title" },
-        start: { type: "string", description: "New start time (ISO 8601)" },
-        end: { type: "string", description: "New end time (ISO 8601)" },
-      },
-      required: ["event_id"],
-    },
-  },
-  {
-    name: "calendar_delete",
-    description:
-      "Delete a calendar event. WARNING: IRREVERSIBLE — always get explicit user approval first!",
-    endpoint: "/tools/calendar.delete",
-    parameters: {
-      type: "object",
-      properties: {
-        event_id: { type: "string", description: "ID of the event to delete" },
-      },
-      required: ["event_id"],
-    },
-    irreversible: true,
-  },
-
-  // -- Messaging (Slack-like) -----------------------------------------------
-  {
-    name: "slack_list_channels",
-    description: "List available Slack channels.",
-    endpoint: "/tools/slack.list_channels",
-    parameters: { type: "object", properties: {} },
-  },
-  {
-    name: "slack_read_messages",
-    description: "Read recent messages from a Slack channel.",
-    endpoint: "/tools/slack.read_messages",
-    parameters: {
-      type: "object",
-      properties: {
-        channel: { type: "string", description: "Channel name or ID" },
-        limit: { type: "number", description: "Max messages to return" },
-      },
-      required: ["channel"],
-    },
-  },
-  {
-    name: "slack_post_message",
-    description:
-      "Post a message to a Slack channel. WARNING: IRREVERSIBLE — always get explicit user approval first!",
-    endpoint: "/tools/slack.post_message",
-    parameters: {
-      type: "object",
-      properties: {
-        channel: { type: "string", description: "Channel name or ID" },
-        text: { type: "string", description: "Message text" },
-      },
-      required: ["channel", "text"],
-    },
-    irreversible: true,
-  },
-  {
-    name: "slack_send_dm",
-    description:
-      "Send a direct message on Slack. WARNING: IRREVERSIBLE — always get explicit user approval first!",
-    endpoint: "/tools/slack.send_dm",
-    parameters: {
-      type: "object",
-      properties: {
-        user: { type: "string", description: "User name or ID" },
-        text: { type: "string", description: "Message text" },
-      },
-      required: ["user", "text"],
-    },
-    irreversible: true,
-  },
-
-  // -- Tasks (Jira / Linear-like) -------------------------------------------
-  {
-    name: "task_list",
-    description: "List tasks / issues. Optionally filter by status or assignee.",
-    endpoint: "/tools/task.list",
-    parameters: {
-      type: "object",
-      properties: {
-        status: { type: "string", description: "Filter by status (open, in_progress, done)" },
-        assignee: { type: "string", description: "Filter by assignee" },
-      },
-    },
-  },
-  {
-    name: "task_get",
-    description: "Get details of a specific task / issue by ID.",
-    endpoint: "/tools/task.get",
-    parameters: {
-      type: "object",
-      properties: {
-        task_id: { type: "string", description: "Task ID" },
-      },
-      required: ["task_id"],
-    },
-  },
-  {
-    name: "task_create",
-    description: "Create a new task / issue.",
-    endpoint: "/tools/task.create",
-    parameters: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Task title" },
-        description: { type: "string", description: "Task description" },
-        assignee: { type: "string", description: "Assignee" },
-        priority: { type: "string", description: "Priority (low, medium, high, critical)" },
-      },
-      required: ["title"],
-    },
-  },
-  {
-    name: "task_update",
-    description: "Update a task's status, priority, or other fields.",
-    endpoint: "/tools/task.update",
-    parameters: {
-      type: "object",
-      properties: {
-        task_id: { type: "string", description: "Task ID" },
-        status: { type: "string", description: "New status" },
-        priority: { type: "string", description: "New priority" },
-      },
-      required: ["task_id"],
+      required: ["command"],
     },
   },
 
-  // -- Documents (Drive / Notion-like) --------------------------------------
+  // -- Memory Search (matching memory-tool.ts) ------------------------------
   {
-    name: "doc_list",
-    description: "List available documents.",
-    endpoint: "/tools/doc.list",
-    parameters: { type: "object", properties: {} },
-  },
-  {
-    name: "doc_read",
-    description: "Read the content of a document by ID.",
-    endpoint: "/tools/doc.read",
+    name: "memory_search",
+    description:
+      "Mandatory recall step: semantically search MEMORY.md + memory/*.md " +
+      "before answering questions about prior work, decisions, dates, people, " +
+      "preferences, or todos; returns top snippets with path + lines.",
     parameters: {
       type: "object",
       properties: {
-        document_id: { type: "string", description: "Document ID" },
+        query: {
+          type: "string",
+          description: "Semantic search query.",
+        },
+        maxResults: {
+          type: "number",
+          description: "Maximum results to return.",
+        },
+        minScore: {
+          type: "number",
+          description: "Minimum relevance score threshold.",
+        },
       },
-      required: ["document_id"],
-    },
-  },
-  {
-    name: "doc_create",
-    description: "Create a new document.",
-    endpoint: "/tools/doc.create",
-    parameters: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "Document title" },
-        content: { type: "string", description: "Document content (markdown)" },
-      },
-      required: ["title", "content"],
+      required: ["query"],
     },
   },
 
-  // -- Contacts -------------------------------------------------------------
+  // -- Memory Get (matching memory-tool.ts) ---------------------------------
   {
-    name: "contacts_list",
-    description: "List contacts, optionally filtered by a search query.",
-    endpoint: "/tools/contacts.list",
+    name: "memory_get",
+    description:
+      "Safe snippet read from MEMORY.md or memory/*.md with optional " +
+      "from/lines; use after memory_search to pull only the needed lines.",
     parameters: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Search query (name or email)" },
-      },
-    },
-  },
-  {
-    name: "contacts_get",
-    description: "Get full details of a contact by ID.",
-    endpoint: "/tools/contacts.get",
-    parameters: {
-      type: "object",
-      properties: {
-        contact_id: { type: "string", description: "Contact ID" },
-      },
-      required: ["contact_id"],
-    },
-  },
-
-  // -- Memory / Notes -------------------------------------------------------
-  {
-    name: "memory_read",
-    description: "Read a file or note from memory storage.",
-    endpoint: "/tools/memory.read",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Path to the file to read" },
+        path: {
+          type: "string",
+          description: "Path to memory file.",
+        },
+        from: {
+          type: "number",
+          description: "Starting line number.",
+        },
+        lines: {
+          type: "number",
+          description: "Number of lines to read.",
+        },
       },
       required: ["path"],
     },
   },
+
+  // -- Web Search (matching web-search.ts, Brave provider) ------------------
   {
-    name: "memory_write",
-    description: "Write content to a file in memory storage.",
-    endpoint: "/tools/memory.write",
+    name: "web_search",
+    description:
+      "Search the web. Returns titles, URLs, and snippets.",
     parameters: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Path to write to" },
-        content: { type: "string", description: "Content to write" },
+        query: {
+          type: "string",
+          description: "Search query string.",
+        },
+        count: {
+          type: "number",
+          description: "Number of results to return (1-10).",
+        },
+        country: {
+          type: "string",
+          description:
+            "2-letter country code for region-specific results (e.g. 'US').",
+        },
+        freshness: {
+          type: "string",
+          description:
+            "Filter by time: 'pd' (24h), 'pw' (week), 'pm' (month), 'py' (year).",
+        },
       },
-      required: ["path", "content"],
+      required: ["query"],
     },
   },
 
-  // -- Web Search (mock) ----------------------------------------------------
+  // -- Web Fetch (matching web-fetch.ts) ------------------------------------
   {
-    name: "search_web",
-    description: "Search the web for information. Returns a list of results with title, URL, and snippet.",
-    endpoint: "/tools/search.web",
+    name: "web_fetch",
+    description:
+      "Fetch and extract readable content from a URL (HTML to markdown/text).",
     parameters: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Search query" },
+        url: {
+          type: "string",
+          description: "HTTP or HTTPS URL to fetch.",
+        },
+        extractMode: {
+          type: "string",
+          description: 'Extraction mode ("markdown" or "text").',
+          enum: ["markdown", "text"],
+        },
+        maxChars: {
+          type: "number",
+          description: "Maximum characters to return.",
+        },
       },
-      required: ["query"],
+      required: ["url"],
+    },
+  },
+
+  // -- Read (matching read tool for workspace files) ------------------------
+  {
+    name: "read",
+    description: "Read the contents of a file by path.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Absolute or workspace-relative file path to read.",
+        },
+        from: {
+          type: "number",
+          description: "Starting line number.",
+        },
+        lines: {
+          type: "number",
+          description: "Number of lines to read.",
+        },
+      },
+      required: ["path"],
     },
   },
 ];
@@ -423,6 +335,43 @@ async function callMockServer(
   return result;
 }
 
+/**
+ * Extract params from OpenClaw's execute() calling convention.
+ *   execute(toolCallId: string, params: object, context: object, unknown)
+ */
+function extractParams(
+  args: unknown[],
+  logger?: { warn: (msg: string) => void },
+): Record<string, unknown> {
+  if (args.length === 0) return {};
+
+  if (typeof args[0] === "string" && args.length >= 2) {
+    const params = args[1];
+    if (
+      params !== null &&
+      params !== undefined &&
+      typeof params === "object" &&
+      !Array.isArray(params)
+    ) {
+      return params as Record<string, unknown>;
+    }
+    return {};
+  }
+
+  const first = args[0];
+  if (
+    first !== null &&
+    first !== undefined &&
+    typeof first === "object" &&
+    !Array.isArray(first)
+  ) {
+    return first as Record<string, unknown>;
+  }
+
+  logger?.warn("[params-debug] unexpected args shape — returning empty");
+  return {};
+}
+
 // ---------------------------------------------------------------------------
 // Plugin definition
 // ---------------------------------------------------------------------------
@@ -431,7 +380,7 @@ const trajectorySandboxPlugin = {
   id: "trajectory-sandbox-tools",
   name: "Trajectory Sandbox Tools",
   description:
-    "Comprehensive mock tool library for trajectory sandbox evaluation (email, calendar, Slack, tasks, documents, contacts, memory, web search)",
+    "Mock tools matching real OpenClaw tool schemas (slack, exec, memory, web_search, web_fetch, read) for trajectory sandbox evaluation",
   configSchema: {
     type: "object" as const,
     additionalProperties: false,
@@ -450,52 +399,16 @@ const trajectorySandboxPlugin = {
   },
 
   register(api: OpenClawPluginApi) {
-    api.logger.info("Trajectory Sandbox Tools plugin loading...");
+    api.logger.info("Trajectory Sandbox Tools plugin loading (corrected schema v0.3.0)...");
 
     const pluginConfig = getPluginConfig(api);
 
-    /**
-     * Extract params from OpenClaw's execute() calling convention.
-     *
-     * Discovered convention (2026-02-06):
-     *   execute(toolCallId: string, params: object, context: object, unknown)
-     *
-     * args[0] = tool call ID (string), args[1] = actual params (object).
-     */
-    function extractParams(...args: unknown[]): Record<string, unknown> {
-      if (args.length === 0) return {};
-
-      // OpenClaw convention: execute(toolCallId, params, context, ?)
-      if (typeof args[0] === "string" && args.length >= 2) {
-        const params = args[1];
-        if (
-          params !== null &&
-          params !== undefined &&
-          typeof params === "object" &&
-          !Array.isArray(params)
-        ) {
-          return params as Record<string, unknown>;
-        }
-        return {};
-      }
-
-      // Fallback: args[0] is the params object directly
-      const first = args[0];
-      if (first !== null && first !== undefined && typeof first === "object" && !Array.isArray(first)) {
-        return first as Record<string, unknown>;
-      }
-
-      api.logger.warn("[params-debug] unexpected args shape — returning empty");
-      return {};
-    }
-
-    // Register every tool from the catalog
     for (const tool of TOOLS) {
-      const endpoint = tool.endpoint;
+      const toolName = tool.name;
 
       api.registerTool(
         {
-          name: tool.name,
+          name: toolName,
           description: tool.description,
           parameters: {
             type: "object" as const,
@@ -505,7 +418,10 @@ const trajectorySandboxPlugin = {
               : {}),
           },
           async execute(...args: unknown[]) {
-            const params = extractParams(...args);
+            const params = extractParams(args, api.logger);
+
+            // Route to the mock server with tool name as endpoint
+            const endpoint = `/tools/${toolName}`;
             const result = await callMockServer(
               pluginConfig,
               endpoint,
@@ -519,12 +435,13 @@ const trajectorySandboxPlugin = {
             };
           },
         },
-        { names: [tool.name] },
+        { names: [toolName] },
       );
     }
 
     api.logger.info(
-      `Trajectory Sandbox Tools plugin loaded: ${TOOLS.length} tools registered`,
+      `Trajectory Sandbox Tools plugin loaded: ${TOOLS.length} tools registered ` +
+        `(${TOOLS.map((t) => t.name).join(", ")})`,
     );
   },
 };

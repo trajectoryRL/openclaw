@@ -1,8 +1,8 @@
 {
   "id": "trajectory-sandbox-tools",
   "name": "Trajectory Sandbox Tools",
-  "version": "0.2.0",
-  "description": "Comprehensive mock tool library for trajectory sandbox evaluation — 25 tools across email, calendar, Slack, tasks, documents, contacts, memory, and web search",
+  "version": "0.3.0",
+  "description": "Mock tools matching real OpenClaw tool schemas (slack, exec, memory, web_search, web_fetch, read) for trajectory sandbox evaluation",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
