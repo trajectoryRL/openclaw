@@ -28,7 +28,7 @@
   },
   "plugins": {
     "entries": {
-      "trajectory-sandbox-tools": {
+      "clawbench-tools": {
         "enabled": true,
         "config": {
           "mockServerUrl": "http://mock-tools:3001",

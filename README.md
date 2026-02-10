@@ -6,7 +6,7 @@ This fork is **not intended for general use**. It provides a sandboxed OpenClaw 
 
 ## Changes from upstream
 
-### 1. `extensions/trajectory-sandbox-tools/`
+### 1. `extensions/clawbench-tools/`
 
 An OpenClaw plugin that registers **25 mock tools** across 8 categories:
 
@@ -32,9 +32,9 @@ Pre-configured settings that skip onboarding and lock down the tool environment:
 - All 25 mock tools + `read` + `session_status` allowed (base config)
 - Plugin enabled and pointed at the mock server
 
-**Note:** In practice, the trajectory-sandbox harness generates a scenario-specific `openclaw.json` at runtime that only allows the tools needed for that scenario. The base config here is a fallback that allows everything.
+**Note:** In practice, the clawbench harness generates a scenario-specific `openclaw.json` at runtime that only allows the tools needed for that scenario. The base config here is a fallback that allows everything.
 
-### 3. `Dockerfile.trajectory-sandbox`
+### 3. `Dockerfile.clawbench`
 
 Custom Docker image that:
 
@@ -44,7 +44,7 @@ Custom Docker image that:
 
 ## Usage
 
-This fork is used by the [trajectory-sandbox](https://github.com/trajectoryRL/trajectory-sandbox) harness. See that repo for setup and usage instructions.
+This fork is used by the [clawbench](https://github.com/trajectoryRL/clawbench) harness. See that repo for setup and usage instructions.
 
 ## Upstream
 

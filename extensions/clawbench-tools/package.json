@@ -1,0 +1,11 @@
+{
+  "name": "clawbench-tools",
+  "version": "0.3.0",
+  "description": "OpenClaw plugin — mock tools matching real OpenClaw schemas for ClawBench evaluation",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  }
+}

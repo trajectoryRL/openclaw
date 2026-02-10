@@ -1,8 +1,8 @@
-# Dockerfile.trajectory-sandbox
-# Pre-configured OpenClaw for Trajectory Sandbox evaluation
+# Dockerfile.clawbench
+# Pre-configured OpenClaw for ClawBench evaluation
 #
 # Includes:
-# - trajectory-sandbox-tools plugin
+# - clawbench-tools plugin
 # - Pre-configured openclaw.json (skips onboarding)
 # - Only mock tools enabled (real tools disabled)
 

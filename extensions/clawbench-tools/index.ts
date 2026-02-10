@@ -1,5 +1,5 @@
 /**
- * Trajectory Sandbox Tools — OpenClaw Plugin (Corrected Schema)
+ * ClawBench Tools — OpenClaw Plugin (Corrected Schema)
  *
  * Registers mock tools that match the REAL OpenClaw tool surface:
  *   - slack       (single tool with action param, matching slack-actions.ts)
@@ -297,7 +297,7 @@ function getPluginConfig(api: OpenClawPluginApi): PluginConfig {
   const entries = api.config.plugins?.entries as
     | Record<string, { config?: PluginConfig }>
     | undefined;
-  return entries?.["trajectory-sandbox-tools"]?.config ?? {};
+  return entries?.["clawbench-tools"]?.config ?? {};
 }
 
 async function callMockServer(
@@ -376,11 +376,11 @@ function extractParams(
 // Plugin definition
 // ---------------------------------------------------------------------------
 
-const trajectorySandboxPlugin = {
-  id: "trajectory-sandbox-tools",
-  name: "Trajectory Sandbox Tools",
+const clawBenchPlugin = {
+  id: "clawbench-tools",
+  name: "ClawBench Tools",
   description:
-    "Mock tools matching real OpenClaw tool schemas (slack, exec, memory, web_search, web_fetch, read) for trajectory sandbox evaluation",
+    "Mock tools matching real OpenClaw tool schemas (slack, exec, memory, web_search, web_fetch, read) for ClawBench evaluation",
   configSchema: {
     type: "object" as const,
     additionalProperties: false,
@@ -399,7 +399,7 @@ const trajectorySandboxPlugin = {
   },
 
   register(api: OpenClawPluginApi) {
-    api.logger.info("Trajectory Sandbox Tools plugin loading (corrected schema v0.3.0)...");
+    api.logger.info("ClawBench Tools plugin loading (corrected schema v0.3.0)...");
 
     const pluginConfig = getPluginConfig(api);
 
@@ -440,10 +440,10 @@ const trajectorySandboxPlugin = {
     }
 
     api.logger.info(
-      `Trajectory Sandbox Tools plugin loaded: ${TOOLS.length} tools registered ` +
+      `ClawBench Tools plugin loaded: ${TOOLS.length} tools registered ` +
         `(${TOOLS.map((t) => t.name).join(", ")})`,
     );
   },
 };
 
-export default trajectorySandboxPlugin;
+export default clawBenchPlugin;
