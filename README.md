@@ -32,6 +32,8 @@ Pre-configured settings that skip onboarding and lock down the tool environment:
 - All 25 mock tools + `read` + `session_status` allowed (base config)
 - Plugin enabled and pointed at the mock server
 
+The model is controlled by the `CLAWBENCH_MODEL` env var (default: `anthropic/claude-sonnet-4-5-20250929`). The config uses `${CLAWBENCH_MODEL}` as a placeholder, resolved at container startup. See [ClawBench docs](https://github.com/trajectoryRL/clawbench#model-configuration) for local LLM setup.
+
 **Note:** In practice, the clawbench harness generates a scenario-specific `openclaw.json` at runtime that only allows the tools needed for that scenario. The base config here is a fallback that allows everything.
 
 ### 3. `Dockerfile.clawbench`
