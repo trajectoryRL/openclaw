@@ -1,0 +1,32 @@
+{
+  "id": "clawbench-tools",
+  "name": "ClawBench Tools",
+  "version": "0.3.0",
+  "description": "Mock tools matching real OpenClaw tool schemas (slack, exec, memory, web_search, web_fetch, read) for ClawBench evaluation",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "mockServerUrl": {
+        "type": "string",
+        "default": "http://localhost:3001",
+        "description": "URL of the mock tools server"
+      },
+      "scenario": {
+        "type": "string",
+        "default": "inbox_triage",
+        "description": "Current scenario name for fixtures"
+      }
+    }
+  },
+  "uiHints": {
+    "mockServerUrl": {
+      "label": "Mock Server URL",
+      "placeholder": "http://localhost:3001"
+    },
+    "scenario": {
+      "label": "Scenario",
+      "placeholder": "inbox_triage"
+    }
+  }
+}

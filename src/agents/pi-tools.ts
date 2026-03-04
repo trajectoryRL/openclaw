@@ -426,7 +426,7 @@ export function createOpenClawCodingTools(options?: {
               : undefined,
           workspaceOnly: applyPatchWorkspaceOnly,
         });
-  const tools: AnyAgentTool[] = [
+  const toolsRaw: AnyAgentTool[] = [
     ...base,
     ...(sandboxRoot
       ? allowWorkspaceWrites
@@ -500,6 +500,13 @@ export function createOpenClawCodingTools(options?: {
       sessionId: options?.sessionId,
     }),
   ];
+  // Deduplicate: when a plugin tool shares a name with a built-in tool,
+  // keep the last occurrence (plugin tools are appended after built-ins).
+  const toolDedup = new Map<string, AnyAgentTool>();
+  for (const tool of toolsRaw) {
+    toolDedup.set(tool.name, tool);
+  }
+  const tools = Array.from(toolDedup.values());
   const toolsForMessageProvider = applyMessageProviderToolPolicy(tools, options?.messageProvider);
   // Security: treat unknown/undefined as unauthorized (opt-in, not opt-out)
   const senderIsOwner = options?.senderIsOwner === true;
