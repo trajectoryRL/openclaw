@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createDefaultDeps } from "../cli/deps.js";
 import { agentCommandFromIngress } from "../commands/agent.js";
+import { resolveDefaultSessionStorePath } from "../config/sessions/paths.js";
+import { loadSessionStore } from "../config/sessions/store.js";
 import { emitAgentEvent, onAgentEvent } from "../infra/agent-events.js";
+import { loadSessionCostSummary } from "../infra/session-cost-usage.js";
 import { logWarn } from "../logger.js";
 import { defaultRuntime } from "../runtime.js";
 import { resolveAssistantStreamDeltaText } from "./agent-event-assistant-text.js";
@@ -253,6 +256,42 @@ export async function handleOpenAiHttpRequest(
 
       const content = resolveAgentResponseText(result);
 
+      // Load session cost summary from the transcript written during the agent run.
+      // The session store maps session keys to UUID-based file names, so we must
+      // look up the entry to resolve the correct transcript file path.
+      let xOpenclawUsage: Record<string, unknown> | undefined;
+      try {
+        const storePath = resolveDefaultSessionStorePath();
+        const store = loadSessionStore(storePath, { skipCache: true });
+        const sessionEntry = store[sessionKey];
+        const costSummary = await loadSessionCostSummary({
+          sessionId: sessionKey,
+          sessionEntry,
+        });
+        if (costSummary) {
+          const modelUsage = costSummary.modelUsage?.map((m) => ({
+            model: m.model,
+            provider: m.provider,
+            count: m.count,
+            input_tokens: m.totals.input,
+            output_tokens: m.totals.output,
+            cache_read_tokens: m.totals.cacheRead,
+            cache_write_tokens: m.totals.cacheWrite,
+            cost_usd: m.totals.totalCost,
+          }));
+          xOpenclawUsage = {
+            input_tokens: costSummary.input,
+            output_tokens: costSummary.output,
+            cache_read_tokens: costSummary.cacheRead,
+            cache_write_tokens: costSummary.cacheWrite,
+            total_cost_usd: costSummary.totalCost,
+            ...(modelUsage && modelUsage.length > 0 ? { model_usage: modelUsage } : {}),
+          };
+        }
+      } catch {
+        // Best-effort: if cost loading fails, omit the field.
+      }
+
       sendJson(res, 200, {
         id: runId,
         object: "chat.completion",
@@ -265,7 +304,14 @@ export async function handleOpenAiHttpRequest(
             finish_reason: "stop",
           },
         ],
-        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        usage: {
+          prompt_tokens: xOpenclawUsage?.input_tokens ?? 0,
+          completion_tokens: xOpenclawUsage?.output_tokens ?? 0,
+          total_tokens:
+            ((xOpenclawUsage?.input_tokens as number) ?? 0) +
+            ((xOpenclawUsage?.output_tokens as number) ?? 0),
+        },
+        ...(xOpenclawUsage ? { x_openclaw_usage: xOpenclawUsage } : {}),
       });
     } catch (err) {
       logWarn(`openai-compat: chat completion failed: ${String(err)}`);
