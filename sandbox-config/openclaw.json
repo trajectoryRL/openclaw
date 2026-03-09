@@ -22,7 +22,7 @@
     "defaults": {
       "workspace": "/workspace",
       "model": {
-        "primary": "${CLAWBENCH_MODEL}"
+        "primary": "${CLAWBENCH_DEFAULT_MODEL}"
       }
     }
   },
