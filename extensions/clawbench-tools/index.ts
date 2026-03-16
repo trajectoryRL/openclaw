@@ -43,7 +43,7 @@ const TOOLS: ToolDefinition[] = [
     description:
       "Interact with Slack. Supports actions: readMessages, sendMessage, " +
       "editMessage, deleteMessage, react, reactions, pinMessage, unpinMessage, " +
-      "listPins, memberInfo, emojiList.",
+      "listPins, listChannels, memberInfo, emojiList.",
     parameters: {
       type: "object",
       properties: {
@@ -61,6 +61,7 @@ const TOOLS: ToolDefinition[] = [
             "pinMessage",
             "unpinMessage",
             "listPins",
+            "listChannels",
             "memberInfo",
             "emojiList",
           ],
