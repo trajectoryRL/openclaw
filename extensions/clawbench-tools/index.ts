@@ -440,9 +440,70 @@ const clawBenchPlugin = {
       );
     }
 
+    // -- MCP-compatible tools (stable interface for future real-API backends) --
+    // These route to /tools/{name} on the mock server alongside the legacy tools.
+    const MCP_TOOLS: Array<{ name: string; description: string; params: Record<string, unknown>; required?: string[] }> = [
+      { name: "email_list", description: "List all inbox emails (id, sender, subject, date, flags).", params: {} },
+      { name: "email_read", description: "Read a specific email by ID.", params: { message_id: { type: "string", description: "Email message ID" } }, required: ["message_id"] },
+      { name: "email_send", description: "Send an email. IRREVERSIBLE.", params: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to", "subject", "body"] },
+      { name: "email_draft", description: "Save an email draft.", params: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to", "subject", "body"] },
+      { name: "calendar_list", description: "List upcoming calendar events.", params: {} },
+      { name: "calendar_search", description: "Search calendar events by keyword.", params: { query: { type: "string" } }, required: ["query"] },
+      { name: "calendar_create", description: "Create a calendar event. IRREVERSIBLE.", params: { title: { type: "string" }, when: { type: "string" }, duration: { type: "string" } }, required: ["title", "when"] },
+      { name: "tasks_list", description: "List tasks with optional filters.", params: { status: { type: "string" }, priority: { type: "string" }, assignee: { type: "string" } } },
+      { name: "task_get", description: "Get full detail for a task by ID.", params: { task_id: { type: "string" } }, required: ["task_id"] },
+      { name: "task_create", description: "Create a new task. IRREVERSIBLE.", params: { title: { type: "string" }, priority: { type: "string" }, assignee: { type: "string" } }, required: ["title"] },
+      { name: "task_update", description: "Update a task. IRREVERSIBLE.", params: { task_id: { type: "string" }, status: { type: "string" }, priority: { type: "string" } }, required: ["task_id"] },
+      { name: "slack_channels", description: "List available Slack channels.", params: {} },
+      { name: "slack_read", description: "Read messages from a Slack channel.", params: { channel: { type: "string" }, limit: { type: "number" } }, required: ["channel"] },
+      { name: "slack_send", description: "Send a Slack message. IRREVERSIBLE.", params: { to: { type: "string" }, message: { type: "string" } }, required: ["to", "message"] },
+      { name: "slack_member", description: "Get member/contact info by user ID.", params: { user_id: { type: "string" } }, required: ["user_id"] },
+      { name: "memory_read", description: "Read a specific memory file.", params: { path: { type: "string" }, from_line: { type: "number" }, num_lines: { type: "number" } }, required: ["path"] },
+    ];
+
+    for (const mcpTool of MCP_TOOLS) {
+      api.registerTool(
+        {
+          name: mcpTool.name,
+          description: mcpTool.description,
+          parameters: {
+            type: "object" as const,
+            properties: mcpTool.params as Record<string, unknown>,
+            ...(mcpTool.required ? { required: mcpTool.required } : {}),
+          },
+          async execute(...args: unknown[]) {
+            try {
+              const params = extractParams(args, api.logger);
+              const result = await callMockServer(
+                pluginConfig,
+                `/tools/${mcpTool.name}`,
+                params,
+                api.logger,
+              );
+              return {
+                content: [
+                  { type: "text" as const, text: JSON.stringify(result, null, 2) },
+                ],
+              };
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : String(err);
+              api.logger.warn(`[clawbench] ${mcpTool.name} error: ${msg}`);
+              return {
+                content: [
+                  { type: "text" as const, text: JSON.stringify({ error: msg }) },
+                ],
+              };
+            }
+          },
+        },
+        { names: [mcpTool.name] },
+      );
+    }
+
+    const allToolNames = [...TOOLS.map((t) => t.name), ...MCP_TOOLS.map((t) => t.name)];
     api.logger.info(
-      `ClawBench Tools plugin loaded: ${TOOLS.length} tools registered ` +
-        `(${TOOLS.map((t) => t.name).join(", ")})`,
+      `ClawBench Tools plugin loaded: ${allToolNames.length} tools registered ` +
+        `(${allToolNames.join(", ")})`,
     );
   },
 };
